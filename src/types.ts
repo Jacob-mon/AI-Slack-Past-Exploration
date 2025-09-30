@@ -16,10 +16,3 @@ export interface SearchParams {
   endDate: string;
   channels: string[];
 }
-
-export interface ConnectionState {
-  isLoading: boolean;
-  workspace: Workspace | null;
-  error: string | null;
-  hasAllPermissions: boolean;
-}
