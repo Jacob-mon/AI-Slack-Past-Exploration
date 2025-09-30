@@ -1,7 +1,8 @@
+/// <reference types="vite/client" />
 import { GoogleGenAI, Type } from "@google/genai";
 import { SearchParams } from '../types';
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = import.meta.env.VITE_API_KEY;
 let ai: GoogleGenAI | null = null;
 
 // Initialize the AI client only if the API key is available.

@@ -128,24 +128,26 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
       'Slack API 연결 시간이 초과되었습니다. 토큰, 네트워크 연결 또는 프록시 설정을 확인해주세요.'
     );
 
-    // For user tokens (xoxp-), scopes are returned in this header.
-    // For bot tokens (xoxb-), scopes are in 'x-oauth-bot-scopes'
-    const userScopes = response.headers.get('x-oauth-scopes');
-    const botScopes = response.headers.get('x-oauth-bot-scopes');
-    const scopesHeader = userScopes || botScopes;
-    
-    if (!scopesHeader) {
-      console.warn("Slack API 응답에 'x-oauth-scopes' 또는 'x-oauth-bot-scopes' 헤더가 포함되지 않았습니다. 권한 확인이 실패할 수 있습니다. 이는 CORS 프록시 문제이거나 유효하지 않은 토큰일 수 있습니다.");
-    }
-    
-    const scopes = scopesHeader ? scopesHeader.split(',').map(s => s.trim()) : [];
-    
+    const userScopesHeader = response.headers.get('x-oauth-scopes');
+    const botScopesHeader = response.headers.get('x-oauth-bot-scopes');
     const data = await response.json();
 
     if (!data.ok) {
       throw new Error(`Slack API 오류: ${data.error}`);
     }
 
+    // For bot tokens (xoxb-), scopes are in the body. For user tokens (xoxp-), they are in the headers.
+    // We prioritize body scopes (which are more reliable with proxies) and fallback to headers.
+    const scopesFromBody = data.scopes; // This will be an array like ['chat:write', ...] or undefined.
+    const scopesHeader = userScopesHeader || botScopesHeader;
+    const scopesFromHeader = scopesHeader ? scopesHeader.split(',').map(s => s.trim()) : [];
+    
+    const scopes = scopesFromBody || scopesFromHeader;
+
+    if (scopes.length === 0) {
+      console.warn("Slack API 응답에서 권한(scope)을 감지할 수 없었습니다. 이는 CORS 프록시가 'x-oauth-scopes' 헤더를 차단했거나, 토큰이 유효하지 않기 때문일 수 있습니다.");
+    }
+    
     // `auth.test` doesn't provide the team icon, so we fetch it separately.
     const teamInfoResponse = await slackFetch('team.info', token, 'GET', { team: data.team_id });
     const teamIcon = teamInfoResponse.team?.icon?.image_132 || '';

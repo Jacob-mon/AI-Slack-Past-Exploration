@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useState, useCallback, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import ConnectView from './components/ConnectView';
@@ -8,7 +9,7 @@ import { NotionIcon } from './components/icons/NotionIcon';
 import { verifyToken } from './services/slackService';
 import { SpinnerIcon } from './components/icons/SpinnerIcon';
 
-const ENV_SLACK_TOKEN = process.env.SLACK_TOKEN;
+const ENV_SLACK_TOKEN = import.meta.env.VITE_SLACK_TOKEN;
 const REQUIRED_SCOPES = ['search:read', 'channels:history', 'channels:read', 'team:read'];
 
 const App: React.FC = () => {
