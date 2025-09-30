@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import { Workspace } from './types';
@@ -6,7 +8,7 @@ import { NotionIcon } from './components/icons/NotionIcon';
 import { verifyToken } from './services/slackService';
 import { ConnectionState } from './types';
 
-const SLACK_TOKEN = process.env.SLACK_TOKEN;
+const SLACK_TOKEN = import.meta.env.VITE_SLACK_TOKEN;
 
 const REQUIRED_SCOPES = ['search:read', 'channels:history', 'channels:read', 'team:read'];
 

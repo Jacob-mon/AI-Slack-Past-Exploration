@@ -3,15 +3,14 @@ import { SearchParams } from '../types';
 
 // IMPORTANT: This key is managed by the execution environment.
 // Do not hardcode or manage it in the UI.
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
+// FIX: Switched to process.env.API_KEY as per @google/genai guidelines. This also resolves the `import.meta.env` type error.
+if (!process.env.API_KEY) {
   // In a real app, you might want to handle this more gracefully,
   // but for this context, we assume the key is present.
   console.warn("API_KEY environment variable is not set. Gemini API calls will fail.");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 /**
  * Analyzes the user's natural language query to extract relevant search keywords.
@@ -20,7 +19,7 @@ const ai = new GoogleGenAI({ apiKey: API_KEY! });
  * @returns A promise that resolves to an array of keywords.
  */
 export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise<string[]> => {
-    if (!API_KEY) {
+    if (!process.env.API_KEY) {
         throw new Error("Gemini API key is not configured in environment variables.");
     }
     
@@ -156,7 +155,7 @@ ${messagesJSON}
 
 
 export const summarizeDiscussions = async (params: SearchParams, messages: any[], signal?: AbortSignal): Promise<string> => {
-  if (!API_KEY) {
+  if (!process.env.API_KEY) {
     throw new Error("Gemini API key is not configured in environment variables.");
   }
 
