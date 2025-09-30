@@ -18,10 +18,10 @@ interface DashboardProps {
 
 const REQUIRED_SCOPES = ['search:read', 'channels:history', 'channels:read', 'team:read'];
 const scopeDescriptions: Record<string, string> = {
-    'search:read': 'Searches for messages in public channels based on keywords.',
-    'channels:history': 'Reads messages from selected public channels.',
-    'channels:read': 'Fetches the list of public channels in the workspace for selection.',
-    'team:read': 'Fetches basic workspace information like name and icon.',
+    'search:read': 'Search for messages in public channels based on keywords.',
+    'channels:history': 'Read messages from specific public channels you select.',
+    'channels:read': 'Fetch the list of public channels in the workspace for selection.',
+    'team:read': 'Get basic workspace information like its name and icon.',
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackToken }) => {
@@ -78,7 +78,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
   const handleGenerateSummary = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!naturalQuery.trim() || !slackToken) {
-          alert('Please enter something to search for.');
+          alert('Please enter what you want to search for.');
           return;
       }
 
@@ -94,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
         const keywords = await analyzeQuery(naturalQuery, controller.signal);
         
         if (keywords.length === 0) {
-            throw new Error("AI could not extract search terms from the request.");
+            throw new Error("The AI could not extract search keywords from your request.");
         }
         const searchKeyword = keywords.join(' ');
 
@@ -104,11 +104,11 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
           channels: Array.from(selectedChannels)
         };
         
-        setLoadingMessage('Searching relevant Slack conversations...');
+        setLoadingMessage('Searching for relevant Slack conversations...');
         const messages = await searchMessages(slackToken, fullParams, controller.signal);
 
         if (messages.length === 0) {
-            setSummary("# No Results Found\n\nNo messages matched your search criteria. Try expanding the search query or date range.");
+            setSummary("# No Results Found\n\nCould not find any messages matching your criteria. Try broadening your search query or date range.");
             setExecutedSearchKeyword(searchKeyword);
             setIsLoadingSummary(false);
             return;
@@ -133,7 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
             console.log('Summary generation was canceled by the user.');
-            setSummary("Summary generation was canceled.");
+            setSummary("Summary generation has been canceled.");
         } else {
             console.error("Failed to generate summary:", error);
             setSummary(`Failed to generate summary: ${error instanceof Error ? error.message : 'An unknown error occurred.'}`);
@@ -175,7 +175,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
                   onClick={onRetry}
                   className="mt-6 inline-flex items-center justify-center bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors text-lg"
               >
-                  Refresh to Retry
+                  Reload to Retry
               </button>
           </div>
       );
@@ -195,11 +195,11 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
 
               <h2 className="text-2xl font-bold text-red-400 mb-3">Insufficient Permissions</h2>
               <p className="text-gray-300 mb-6 max-w-2xl">
-                  The provided token is missing some required permissions. To ensure the app functions correctly, you need to create a new token with all the required permissions listed below.
+                  The provided token is missing some required permissions. To function correctly, please generate a new token with all the required permissions listed below.
               </p>
 
               <div className="w-full max-w-lg mb-8 text-left">
-                  <h3 className="text-lg font-semibold text-white mb-4">Required Permissions Status</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">Required Permission Status</h3>
                   <ul className="space-y-3">
                       {REQUIRED_SCOPES.map(scope => (
                            <li className="flex items-start space-x-4 p-3 bg-gray-700/50 rounded-lg" key={scope}>
@@ -212,7 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
                               </div>
                               <div>
                                   <code className="font-mono text-sm bg-gray-600 text-indigo-300 rounded px-1.5 py-0.5">{scope}</code>
-                                  <p className="text-gray-400 text-sm mt-1">{scopeDescriptions[scope] || 'Required permission.'}</p>
+                                  <p className="text-gray-400 text-sm mt-1">{scopeDescriptions[scope] || 'A required permission.'}</p>
                               </div>
                           </li>
                       ))}
@@ -223,7 +223,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
                   onClick={onRetry}
                   className="inline-flex items-center justify-center bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors text-lg"
               >
-                  Refresh to Retry
+                  Reload to Retry
               </button>
           </div>
       );
@@ -246,7 +246,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
           <form onSubmit={handleGenerateSummary} className="mt-8">
             <div className="space-y-6">
               <div>
-                <label htmlFor="natural-query" className="block text-sm font-medium text-gray-300 mb-1">What are you looking for?</label>
+                <label htmlFor="natural-query" className="block text-sm font-medium text-gray-300 mb-1">What would you like to find?</label>
                 <textarea 
                   id="natural-query" 
                   value={naturalQuery} 
@@ -291,7 +291,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
                         <p className="text-gray-400 text-sm col-span-full">No matching channels found.</p>
                     )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">If no channels are selected, all public channels will be searched.</p>
+                <p className="text-xs text-gray-500 mt-1">If no channels are selected, search will be across all public channels.</p>
               </div>
               <div className="flex items-center gap-4">
                   <button 
@@ -339,7 +339,7 @@ const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackTo
                 
                 {executedSearchKeyword && !isLoadingSummary && (
                   <div className="mb-4 text-sm text-gray-400">
-                    AI-analyzed search query: <code className="font-mono bg-gray-700 text-indigo-300 rounded px-1.5 py-1">{executedSearchKeyword}</code>
+                    AI-analyzed search term: <code className="font-mono bg-gray-700 text-indigo-300 rounded px-1.5 py-1">{executedSearchKeyword}</code>
                   </div>
                 )}
 

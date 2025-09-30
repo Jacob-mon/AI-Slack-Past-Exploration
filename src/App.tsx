@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import { Workspace } from './types';
@@ -8,7 +6,7 @@ import { NotionIcon } from './components/icons/NotionIcon';
 import { verifyToken } from './services/slackService';
 import { ConnectionState } from './types';
 
-const SLACK_TOKEN = import.meta.env.VITE_SLACK_TOKEN;
+const SLACK_TOKEN = process.env.SLACK_TOKEN;
 
 const REQUIRED_SCOPES = ['search:read', 'channels:history', 'channels:read', 'team:read'];
 
@@ -26,7 +24,7 @@ const App: React.FC = () => {
         setConnectionState({
           isLoading: false,
           workspace: null,
-          error: "A valid Slack token is not configured in Vercel environment variables (VITE_SLACK_TOKEN). Please check your deployment settings.",
+          error: "A valid Slack token was not found in Vercel environment variables (VITE_SLACK_TOKEN). Please check your deployment settings.",
           hasAllPermissions: false,
         });
         return;
@@ -47,7 +45,7 @@ const App: React.FC = () => {
         setConnectionState({
           isLoading: false,
           workspace: null,
-          error: err instanceof Error ? err.message : 'An unknown error occurred.',
+          error: err instanceof Error ? err.message : 'An unknown error occurred during connection.',
           hasAllPermissions: false,
         });
       }
@@ -89,7 +87,7 @@ const App: React.FC = () => {
         </div>
       </main>
       <footer className="w-full max-w-4xl text-center mt-12 text-gray-500 text-sm">
-        <p>Made for productivity at Cinnamon Inc.</p>
+        <p>Built for productivity at Cinnamon Inc.</p>
         <p>&copy; 2024. All rights reserved.</p>
       </footer>
     </div>

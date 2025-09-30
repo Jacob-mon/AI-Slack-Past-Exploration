@@ -1,10 +1,10 @@
 import { Channel, SearchParams, Workspace } from '../types';
 
-// All requests to the Slack API are configured here.
-// Making direct requests from a web browser to the Slack API ('https://slack.com/api')
+// Configuration for all Slack API requests.
+// Making requests directly to the Slack API ('https://slack.com/api') from a web browser
 // will result in a "Failed to fetch" error due to CORS (Cross-Origin Resource Sharing) security policy violations.
-// To resolve this, we use the public CORS proxy service corsproxy.io.
-// The proxy URL is prepended to all API request URLs to relay the requests.
+// To solve this, we use the public CORS proxy service corsproxy.io.
+// We prepend the proxy URL to all API request URLs to relay the requests.
 const CORS_PROXY = 'https://corsproxy.io/?';
 const SLACK_API_URL = 'https://slack.com/api';
 
@@ -61,7 +61,7 @@ const slackFetch = async (endpoint: string, token: string, method: 'GET' | 'POST
         if (retries <= 0) {
             // Throw the final error after all retries are exhausted.
             // Slack's official error code for rate limiting is 'ratelimited'.
-            throw new Error('Slack API error: ratelimited');
+            throw new Error('Slack API Error: ratelimited');
         }
         const retryAfterSeconds = parseInt(response.headers.get('Retry-After') || '1', 10);
         console.warn(`Slack API rate limited. Retrying after ${retryAfterSeconds} seconds... (${retries} retries left)`);
@@ -125,7 +125,7 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
         },
       }),
       20000, // 20-second timeout
-      'Slack API connection timed out. Check your token, network connection, or proxy settings.'
+      'Slack API connection timed out. Please check your token, network connection, or proxy settings.'
     );
 
     // For user tokens (xoxp-), scopes are returned in this header.

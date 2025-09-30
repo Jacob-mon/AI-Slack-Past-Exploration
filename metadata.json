@@ -1,5 +1,5 @@
 {
-  "name": "Cinnamon: AI Slack Summarizer",
-  "description": "An intelligent tool that automatically collects scattered Slack discussions, reconstructs their context, and generates structured Notion drafts. This helps teams quickly grasp the history and outcomes of important decisions.",
+  "name": "Cinnamon Past Explorer",
+  "description": "An intelligent tool that automatically collects scattered Slack discussions, reconstructs context, and generates structured Notion drafts. This helps teams quickly grasp the history and outcomes of important decisions.",
   "requestFramePermissions": []
 }
