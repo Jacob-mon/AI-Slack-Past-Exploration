@@ -1,10 +1,10 @@
 import { Channel, SearchParams, Workspace } from '../types';
 
-// Configuration for all Slack API requests.
-// Making requests directly to the Slack API ('https://slack.com/api') from a web browser
-// will result in a "Failed to fetch" error due to CORS (Cross-Origin Resource Sharing) security policy violations.
-// To solve this, we use the public CORS proxy service corsproxy.io.
-// We prepend the proxy URL to all API request URLs to relay the requests.
+// 모든 Slack API 요청을 위한 URL 구성입니다.
+// 웹 브라우저에서 직접 Slack API('https://slack.com/api')로 요청을 보내면
+// CORS(Cross-Origin Resource Sharing) 보안 정책 위반으로 "Failed to fetch" 오류가 발생합니다.
+// 이 문제를 해결하기 위해 공개 CORS 프록시 서비스인 corsproxy.io를 사용합니다.
+// 모든 API 요청 URL 앞에 프록시 URL을 붙여 요청을 중계합니다.
 const CORS_PROXY = 'https://corsproxy.io/?';
 const SLACK_API_URL = 'https://slack.com/api';
 
@@ -61,10 +61,10 @@ const slackFetch = async (endpoint: string, token: string, method: 'GET' | 'POST
         if (retries <= 0) {
             // Throw the final error after all retries are exhausted.
             // Slack's official error code for rate limiting is 'ratelimited'.
-            throw new Error('Slack API Error: ratelimited');
+            throw new Error('Slack API 오류: ratelimited');
         }
         const retryAfterSeconds = parseInt(response.headers.get('Retry-After') || '1', 10);
-        console.warn(`Slack API rate limited. Retrying after ${retryAfterSeconds} seconds... (${retries} retries left)`);
+        console.warn(`Slack API 속도 제한. ${retryAfterSeconds}초 후 재시도... (${retries}회 남음)`);
         await new Promise(resolve => setTimeout(resolve, retryAfterSeconds * 1000));
         continue; // Go to the next iteration to retry
     }
@@ -73,18 +73,18 @@ const slackFetch = async (endpoint: string, token: string, method: 'GET' | 'POST
     if (contentType && contentType.indexOf("application/json") !== -1) {
       const data = await response.json();
       if (!data.ok) {
-        console.error(`Slack API Error (${endpoint}):`, data.error);
-        throw new Error(`Slack API Error: ${data.error}`);
+        console.error(`Slack API 오류 (${endpoint}):`, data.error);
+        throw new Error(`Slack API 오류: ${data.error}`);
       }
       return data; // Success, exit loop and function.
     } else {
       const text = await response.text();
-      console.error(`Non-JSON response from Slack API (${endpoint}):`, text);
-      throw new Error(`Failed to fetch data from Slack API. Server returned a non-JSON response.`);
+      console.error(`Slack API로부터 비-JSON 응답 (${endpoint}):`, text);
+      throw new Error(`Slack API에서 데이터를 가져오는 데 실패했습니다. 서버가 JSON이 아닌 응답을 반환했습니다.`);
     }
   }
   // This is a fallback, but the loop should handle the final error throw.
-  throw new Error('Slack API request failed after multiple retries.');
+  throw new Error('Slack API 요청이 여러 번의 재시도 후 실패했습니다.');
 };
 
 
@@ -95,7 +95,7 @@ const slackFetch = async (endpoint: string, token: string, method: 'GET' | 'POST
  * @param errorMessage The error message to throw on timeout.
  * @returns A new promise that either resolves with the original promise's value or rejects on timeout.
  */
-const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage = 'Operation timed out.'): Promise<T> => {
+const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage = '작업 시간이 초과되었습니다.'): Promise<T> => {
     const timeout = new Promise<T>((_, reject) => {
         const id = setTimeout(() => {
             clearTimeout(id);
@@ -125,7 +125,7 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
         },
       }),
       20000, // 20-second timeout
-      'Slack API connection timed out. Please check your token, network connection, or proxy settings.'
+      'Slack API 연결 시간이 초과되었습니다. 토큰, 네트워크 연결 또는 프록시 설정을 확인해주세요.'
     );
 
     // For user tokens (xoxp-), scopes are returned in this header.
@@ -133,12 +133,17 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
     const userScopes = response.headers.get('x-oauth-scopes');
     const botScopes = response.headers.get('x-oauth-bot-scopes');
     const scopesHeader = userScopes || botScopes;
+    
+    if (!scopesHeader) {
+      console.warn("Slack API 응답에 'x-oauth-scopes' 또는 'x-oauth-bot-scopes' 헤더가 포함되지 않았습니다. 권한 확인이 실패할 수 있습니다. 이는 CORS 프록시 문제이거나 유효하지 않은 토큰일 수 있습니다.");
+    }
+    
     const scopes = scopesHeader ? scopesHeader.split(',').map(s => s.trim()) : [];
     
     const data = await response.json();
 
     if (!data.ok) {
-      throw new Error(`Slack API Error: ${data.error}`);
+      throw new Error(`Slack API 오류: ${data.error}`);
     }
 
     // `auth.test` doesn't provide the team icon, so we fetch it separately.
@@ -155,7 +160,7 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
     if (e instanceof Error) {
       throw e;
     }
-    throw new Error('An unknown error occurred during token validation.');
+    throw new Error('토큰 유효성 검증 중 알 수 없는 오류가 발생했습니다.');
   }
 };
 
@@ -186,8 +191,8 @@ export const getPublicChannels = async (token:string): Promise<Channel[]> => {
 
 /**
  * Generates all possible spacing variations for a given keyword.
- * For "shot band design", it generates:
- * "shot band design", "shotband design", "shot banddesign", "shotbanddesign"
+ * For "샷 밴드 디자인", it generates:
+ * "샷 밴드 디자인", "샷밴드 디자인", "샷 밴드디자인", "샷밴드디자인"
  */
 const generateQueryVariations = (keyword: string): string[] => {
     const words = keyword.split(/\s+/).filter(Boolean);
@@ -298,7 +303,7 @@ export const searchMessages = async (token: string, params: SearchParams, signal
                     // Re-throw abort errors to be handled by the caller
                     throw err;
                 }
-                console.error(`Failed to fetch thread (ts: ${ts}):`, err);
+                console.error(`스레드를 가져오는 데 실패했습니다 (ts: ${ts}):`, err);
                 return []; // Return empty array on error to not fail the whole process
             })
     );

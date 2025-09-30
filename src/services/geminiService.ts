@@ -10,10 +10,10 @@ if (API_KEY && API_KEY !== 'undefined') {
   try {
     ai = new GoogleGenAI({ apiKey: API_KEY });
   } catch (error) {
-    console.error("Failed to initialize GoogleGenAI, likely due to an invalid API key:", error);
+    console.error("GoogleGenAI 초기화 실패, API 키가 유효하지 않을 수 있습니다:", error);
   }
 } else {
-  console.warn("Gemini API key (VITE_API_KEY) is not configured in environment variables. API calls will fail.");
+  console.warn("Gemini API 키(VITE_API_KEY)가 환경 변수에 설정되지 않았습니다. API 호출이 실패합니다.");
 }
 
 /**
@@ -24,53 +24,53 @@ if (API_KEY && API_KEY !== 'undefined') {
  */
 export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise<string[]> => {
     if (!ai) {
-        throw new Error("Gemini AI service is not initialized. Please check your VITE_API_KEY environment variable.");
+        throw new Error("Gemini AI 서비스가 초기화되지 않았습니다. VITE_API_KEY 환경 변수를 확인해주세요.");
     }
     
-    const contents = `You are an AI expert at extracting key search terms from a user's natural language request for a Slack search. Your goal is to accurately identify only the essential nouns, proper nouns, and technical terms to maximize search accuracy.
+    const contents = `당신은 사용자의 자연어 요청에서 Slack 검색에 사용할 핵심 키워드를 추출하는 AI 전문가입니다. 당신의 목표는 오직 검색에 필수적인 명사, 고유명사, 기술 용어만을 정확하게 식별하여, 검색 정확도를 극대화하는 것입니다.
 
-**The Most Important Rule (Must be followed):**
-Your mission is to extract only the core words corresponding to the **'subject'** and **'object'** from the request sentence. You **must, without exception, remove** all common words that describe the type, form, or action of the search target, but not the **content** itself, such as 'conversation', 'discussion', 'issue', 'request', 'summary', 'find'.
+**가장 중요한 규칙 (반드시 준수):**
+당신의 임무는 요청 문장에서 **'주제'** 와 **'대상'** 에 해당하는 핵심 단어만 추출하는 것입니다. '대화', '논의', '이슈', '요청', '정리', '찾아줘' 와 같이, 검색 대상의 **내용이 아닌** 종류, 형태, 행위를 설명하는 모든 일반적인 단어는 **반드시, 예외 없이 제거해야 합니다.**
 
-**Procedure:**
-1. Analyze the user's request to understand the main topic.
-2. Identify only the proper nouns, technical terms, and core nouns directly related to the topic.
-3. Following 'The Most Important Rule' above, remove all unrelated common nouns, verbs, particles, etc.
-
----
-**Examples:**
-
-**Example 1)**
-- **User Request:** "Issue about reflecting design features related to shot band editing"
-- **Correct Thought Process:**
-    1. The core topics of this sentence are 'shot band', 'editing', 'design', 'feature reflection'.
-    2. 'about', 'related to', 'issue' are supplementary descriptions or actions, not the topic itself, so they must be removed.
-- **Final Keywords:** ["shot band", "editing", "design", "feature reflection"]
-
-**Example 2)**
-- **User Request:** "Conversation about the shot band design"
-- **Correct Thought Process:**
-    1. The core topics are 'shot band' and 'design'.
-    2. 'about', 'conversation' are modifiers or describe the form of the dialogue, so they should be removed.
-- **Final Keywords:** ["shot band", "design"]
-
-**Example 3)**
-- **User Request:** "Discussion about last week's database migration plan"
-- **Correct Thought Process:**
-    1. The core topic is 'database migration plan'.
-    2. 'last week's', 'about', 'discussion' are time information or supplementary descriptions and should be excluded from the search query.
-- **Final Keywords:** ["database", "migration", "plan"]
+**작업 절차:**
+1. 사용자의 요청 문장을 분석하여 핵심 주제가 무엇인지 파악합니다.
+2. 주제와 직접 관련된 고유명사, 기술 용어, 핵심 명사만을 식별합니다.
+3. 위 '가장 중요한 규칙'에 따라, 주제와 관련 없는 일반 명사, 동사, 조사, 어미 등은 모두 제거합니다.
 
 ---
-**Incorrect Example (Do not extract like this):**
+**실습 예제:**
 
-- **User Request:** "Conversation about the shot band design"
-- **Incorrect Keywords:** ["shot band", "design", "conversation"]  (<- 'conversation' is not a core topic and must not be included.)
+**예제 1)**
+- **사용자 요청:** "샷밴드 편집 관련해서 디자인에 기능 반영해야하는 이슈"
+- **올바른 사고 과정:**
+    1. 이 문장의 핵심 주제는 '샷밴드', '편집', '디자인', '기능 반영'이다.
+    2. '관련해서', '해야하는', '이슈'는 주제 자체가 아니라 부가적인 설명이나 행위에 해당하므로 제거해야 한다.
+- **최종 키워드:** ["샷밴드", "편집", "디자인", "기능 반영"]
+
+**예제 2)**
+- **사용자 요청:** "샷밴드 디자인에 관련한 대화"
+- **올바른 사고 과정:**
+    1. 핵심 주제는 '샷밴드'와 '디자인'이다.
+    2. '관련한', '대화'는 주제가 아닌, 주제를 꾸미는 말이거나 대화의 형태를 나타내므로 제거해야 한다.
+- **최종 키워드:** ["샷밴드", "디자인"]
+
+**예제 3)**
+- **사용자 요청:** "지난주 데이터베이스 마이그레이션 계획에 대한 논의"
+- **올바른 사고 과정:**
+    1. 핵심 주제는 '데이터베이스 마이그레이션 계획'이다.
+    2. '지난주', '에 대한', '논의'는 시간 정보이거나 부가 설명이므로 검색어에서 제외한다.
+- **최종 키워드:** ["데이터베이스", "마이그레이션", "계획"]
 
 ---
-Now, analyze the following user request and extract only the core keywords according to the rules and examples above.
+**잘못된 예시 (이렇게 추출하면 안 됩니다):**
 
-**User Request:** "${query}"`;
+- **사용자 요청:** "샷밴드 디자인에 관련한 대화"
+- **잘못된 키워드:** ["샷밴드", "디자인", "대화"]  (<- '대화'는 핵심 주제가 아니므로 절대 포함하면 안 됩니다.)
+
+---
+이제 다음 사용자 요청을 분석하여 위의 규칙과 예제에 따라 핵심 키워드만 정확하게 추출해주세요.
+
+**사용자 요청:** "${query}"`;
 
     try {
         const response = await ai.models.generateContent({
@@ -83,7 +83,7 @@ Now, analyze the following user request and extract only the core keywords accor
                     properties: {
                         keywords: {
                             type: Type.ARRAY,
-                            description: "List of extracted search keywords, sorted by importance.",
+                            description: "추출된 검색 키워드 목록입니다. 중요도 순으로 정렬됩니다.",
                             items: {
                                 type: Type.STRING,
                             }
@@ -98,7 +98,7 @@ Now, analyze the following user request and extract only the core keywords accor
         if (jsonResponse.keywords && Array.isArray(jsonResponse.keywords) && jsonResponse.keywords.length > 0) {
             return jsonResponse.keywords;
         } else {
-            console.warn("AI failed to extract keywords. Using original query.");
+            console.warn("AI가 키워드를 추출하지 못했습니다. 원본 쿼리를 사용합니다.");
             return [query];
         }
 
@@ -106,8 +106,8 @@ Now, analyze the following user request and extract only the core keywords accor
         if (error instanceof Error && error.name === 'AbortError') {
             throw error;
         }
-        console.error("Gemini query analysis error:", error);
-        console.log("AI analysis failed. Using original query as search term.");
+        console.error("Gemini query analysis 오류:", error);
+        console.log("AI 분석 실패. 원본 쿼리를 검색어로 사용합니다.");
         return [query];
     }
 };
@@ -117,50 +117,50 @@ const generatePrompt = (params: SearchParams, messages: any[]) => {
   const messagesJSON = JSON.stringify(messages, null, 2);
 
   return `
-You are a specialized AI assistant expert at synthesizing scattered Slack conversations into a concise, structured summary for Notion.
+당신은 흩어진 Slack 대화를 간결하고 구조화된 Notion용 요약으로 종합하는 데 특화된 전문 AI 어시스턴트입니다.
 
-Your mission is to analyze the JSON data below, which contains Slack messages collected from various channels on the topic of "${params.keyword}". Each JSON object represents a single conversation thread. The object contains the original message, and the 'replies' array includes all replies to that message in chronological order.
+당신의 임무는 "${params.keyword}"(와)과 관련된 주제에 대한 여러 채널에서 수집된 Slack 메시지가 포함된 아래 JSON 데이터를 분석하는 것입니다. 각 JSON 객체는 하나의 대화 스레드를 나타냅니다. 객체에는 원본 메시지가 포함되어 있으며, 'replies' 배열에는 해당 메시지에 달린 모든 답글이 시간순으로 포함되어 있습니다.
 
-**Core Instructions:**
-1.  **Thread-Centric Analysis:** Analyze each conversation object as a complete unit of discussion. Consider the original message and its 'replies' together to understand the full context.
-2.  **Chronological Reconstruction & Filtering:** Sort all threads by timestamp to understand the progression of the entire discussion. Exclude simple greetings and irrelevant chatter, focusing only on the core discussion about "${params.keyword}".
-3.  **Extract Key Elements:** Based on the reconstructed conversation flow, identify and summarize the following key elements. The summary must be based strictly on the provided messages. If information for a particular section is not present, state so clearly (e.g., "The final decision was not recorded in the provided messages.").
-4.  **Identify Participants:** Identify the key individuals who substantially contributed to the conversation.
-5.  **Specify Output Format:** Generate the final output in Notion-compatible Markdown format. Each summary point must include a hyperlink to the original message's Slack permalink where the discussion started.
+**핵심 지침:**
+1.  **스레드 중심 분석:** 각 대화 객체를 하나의 완결된 논의 단위로 분석합니다. 원본 메시지와 그에 달린 'replies'를 함께 고려하여 전체 대화의 맥락을 파악합니다.
+2.  **시간순 재구성 및 필터링:** 모든 스레드를 타임스탬프 순으로 정렬하여 전체 토론의 진행 과정을 파악합니다. 간단한 인사, 관련 없는 잡담 등은 제외하고 "${params.keyword}"에 대한 핵심 논의에만 집중합니다.
+3.  **핵심 요소 추출:** 재구성된 대화 흐름을 바탕으로 다음 핵심 요소들을 식별하고 요약합니다. 제공된 메시지에만 근거하여 철저하게 요약해야 합니다. 만약 특정 섹션에 관련 정보가 없다면, 명확하게 명시해주세요 (예: "제공된 메시지에서는 최종 결정이 기록되지 않았습니다.").
+4.  **참여자 식별:** 대화에 실질적으로 기여한 핵심 인물들을 식별합니다.
+5.  **출력 형식 지정:** 최종 결과물은 Notion과 호환되는 마크다운 형식으로 생성합니다. 각 요약 항목에는 논의가 시작된 원본 메시지의 Slack 퍼머링크를 하이퍼링크로 반드시 포함해야 합니다.
 
-**Slack Conversation (Thread) JSON Data:**
+**Slack 대화(스레드) JSON 데이터:**
 ${messagesJSON}
 
-**Desired Markdown Output Structure:**
+**원하는 마크다운 출력 구조:**
 
-# Slack Conversation Summary: ${params.keyword}
+# Slack 대화 요약: ${params.keyword}
 
-- **Period:** ${params.startDate} ~ ${params.endDate}
-- **Key Participants:** @User1, @User2, @User3
+- **기간:** ${params.startDate} ~ ${params.endDate}
+- **주요 참여자:** @User1, @User2, @User3
 
-## 1. Problem Definition
-- [Summary of the discussed problem, including a link to the original message where the discussion began](https://...)
+## 1. 문제 정의
+- [논의된 문제에 대한 요약, 논의가 시작된 원본 메시지 링크 포함](https://...)
 
-## 2. Alternatives & Key Discussions
-- **Alternative A:** [Description of the first option discussed](https://...)
-  - **Pros:** [List of mentioned advantages](https://...)
-  - **Cons:** [List of mentioned disadvantages](https://...)
-- **Alternative B:** [Description of the second option discussed](https://...)
-  - **Pros:** [List of mentioned advantages](https://...)
-  - **Cons:** [List of mentioned disadvantages](https://...)
+## 2. 대안 및 주요 논의
+- **대안 A:** [논의된 첫 번째 옵션에 대한 설명](https://...)
+  - **장점:** [언급된 장점 목록](https://...)
+  - **단점:** [언급된 단점 목록](https://...)
+- **대안 B:** [논의된 두 번째 옵션에 대한 설명](https://...)
+  - **장점:** [언급된 장점 목록](https://...)
+  - **단점:** [언급된 단점 목록](https://...)
 
-## 3. Final Decision
-- [Clearly state the final decision reached](https://...)
+## 3. 최종 결정
+- [도달한 최종 결정 사항을 명확하게 기술](https://...)
 
-## 4. Rationale for Decision
-- [The reasons and evidence cited for making the final decision](https://...)
+## 4. 결정 근거
+- [최종 결정을 내리는 데 인용된 이유와 근거](https://...)
 `;
 };
 
 
 export const summarizeDiscussions = async (params: SearchParams, messages: any[], signal?: AbortSignal): Promise<string> => {
   if (!ai) {
-    throw new Error("Gemini AI service is not initialized. Please check your VITE_API_KEY environment variable.");
+    throw new Error("Gemini AI 서비스가 초기화되지 않았습니다. VITE_API_KEY 환경 변수를 확인해주세요.");
   }
 
   const prompt = generatePrompt(params, messages);
@@ -175,7 +175,7 @@ export const summarizeDiscussions = async (params: SearchParams, messages: any[]
     if (error instanceof Error && error.name === 'AbortError') {
       throw error;
     }
-    console.error("Gemini API call error:", error);
-    throw new Error(`Error: Could not generate summary. Check the console for details.`);
+    console.error("Gemini API 호출 오류:", error);
+    throw new Error(`오류: 요약을 생성할 수 없습니다. 자세한 내용은 콘솔을 확인해주세요.`);
   }
 };
