@@ -24,7 +24,7 @@ const App: React.FC = () => {
         setConnectionState({
           isLoading: false,
           workspace: null,
-          error: "유효한 Slack 토큰이 Vercel 환경 변수(VITE_SLACK_TOKEN)에 설정되지 않았습니다. 배포 설정을 확인해주세요.",
+          error: "A valid Slack token is not configured in Vercel environment variables (VITE_SLACK_TOKEN). Please check your deployment settings.",
           hasAllPermissions: false,
         });
         return;
@@ -45,7 +45,7 @@ const App: React.FC = () => {
         setConnectionState({
           isLoading: false,
           workspace: null,
-          error: err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.',
+          error: err instanceof Error ? err.message : 'An unknown error occurred.',
           hasAllPermissions: false,
         });
       }
@@ -71,10 +71,10 @@ const App: React.FC = () => {
       <main className="w-full max-w-4xl">
         <div className="text-center mb-10">
           <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">
-            Slack 대화 요약기
+            Slack Conversation Summarizer
           </h1>
           <p className="text-lg text-gray-400">
-            흩어진 Slack 스레드를 AI로 체계적인 Notion 문서로 변환하세요.
+            Turn scattered Slack threads into organized Notion documents with AI.
           </p>
         </div>
 
@@ -87,8 +87,8 @@ const App: React.FC = () => {
         </div>
       </main>
       <footer className="w-full max-w-4xl text-center mt-12 text-gray-500 text-sm">
-        <p>Cinnamon Inc.의 생산성 향상을 위해 제작되었습니다.</p>
-        <p>&copy; 2024. 모든 권리 보유.</p>
+        <p>Made for productivity at Cinnamon Inc.</p>
+        <p>&copy; 2024. All rights reserved.</p>
       </footer>
     </div>
   );

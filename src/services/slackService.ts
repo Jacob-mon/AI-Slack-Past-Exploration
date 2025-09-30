@@ -1,10 +1,10 @@
 import { Channel, SearchParams, Workspace } from '../types';
 
-// 모든 Slack API 요청을 위한 URL 구성입니다.
-// 웹 브라우저에서 직접 Slack API('https://slack.com/api')로 요청을 보내면
-// CORS(Cross-Origin Resource Sharing) 보안 정책 위반으로 "Failed to fetch" 오류가 발생합니다.
-// 이 문제를 해결하기 위해 공개 CORS 프록시 서비스인 corsproxy.io를 사용합니다.
-// 모든 API 요청 URL 앞에 프록시 URL을 붙여 요청을 중계합니다.
+// All requests to the Slack API are configured here.
+// Making direct requests from a web browser to the Slack API ('https://slack.com/api')
+// will result in a "Failed to fetch" error due to CORS (Cross-Origin Resource Sharing) security policy violations.
+// To resolve this, we use the public CORS proxy service corsproxy.io.
+// The proxy URL is prepended to all API request URLs to relay the requests.
 const CORS_PROXY = 'https://corsproxy.io/?';
 const SLACK_API_URL = 'https://slack.com/api';
 
@@ -186,8 +186,8 @@ export const getPublicChannels = async (token:string): Promise<Channel[]> => {
 
 /**
  * Generates all possible spacing variations for a given keyword.
- * For "샷 밴드 디자인", it generates:
- * "샷 밴드 디자인", "샷밴드 디자인", "샷 밴드디자인", "샷밴드디자인"
+ * For "shot band design", it generates:
+ * "shot band design", "shotband design", "shot banddesign", "shotbanddesign"
  */
 const generateQueryVariations = (keyword: string): string[] => {
     const words = keyword.split(/\s+/).filter(Boolean);
