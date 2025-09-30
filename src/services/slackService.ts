@@ -110,60 +110,69 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage = '작업 
 };
 
 /**
- * Verifies a Slack token and fetches basic workspace information with a 20-second timeout.
- * It also retrieves the token's permission scopes from the response headers.
- * @param token The Slack user token (`xoxp-...`).
+ * Verifies a Slack token by actively testing each required permission.
+ * This method is robust against CORS proxy issues that might strip permission headers.
+ * @param token The Slack user or bot token.
  * @returns A promise that resolves to a Workspace object, including scopes.
  */
 export const verifyToken = async (token: string): Promise<Workspace> => {
-  try {
-    const response = await withTimeout(
-      fetch(`${CORS_PROXY}${SLACK_API_URL}/auth.test`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-      }),
-      20000, // 20-second timeout
+    // 1. Basic validation and get team info. This fails fast for invalid tokens.
+    const authData = await withTimeout(
+      slackFetch('auth.test', token),
+      20000,
       'Slack API 연결 시간이 초과되었습니다. 토큰, 네트워크 연결 또는 프록시 설정을 확인해주세요.'
     );
+    const { team_id, team } = authData;
 
-    const userScopesHeader = response.headers.get('x-oauth-scopes');
-    const botScopesHeader = response.headers.get('x-oauth-bot-scopes');
-    const data = await response.json();
+    // 2. Actively test each required scope by making a minimal API call.
+    // These calls run in parallel for efficiency.
+    const scopeCheckPromises = [
+      // team:read check
+      slackFetch('team.info', token, 'GET', { team: team_id }).then(() => 'team:read').catch(() => null),
+      
+      // channels:read check
+      slackFetch('conversations.list', token, 'GET', { limit: 1 }).then(() => 'channels:read').catch(() => null),
+      
+      // search:read check
+      slackFetch('search.messages', token, 'POST', { query: 'permission-check', count: 1 }).then(() => 'search:read').catch(() => null),
 
-    if (!data.ok) {
-      throw new Error(`Slack API 오류: ${data.error}`);
+      // channels:history check (more complex, requires a channel ID)
+      (async (): Promise<string | null> => {
+        try {
+          // This check depends on channels:read being present.
+          const channelsData = await slackFetch('conversations.list', token, 'GET', { limit: 1, types: 'public_channel' });
+          if (channelsData.channels && channelsData.channels.length > 0) {
+            const channelId = channelsData.channels[0].id;
+            // Now test history on that channel
+            await slackFetch('conversations.history', token, 'GET', { channel: channelId, limit: 1 });
+            return 'channels:history';
+          }
+          return null; // Can't test if no public channels exist.
+        } catch (error) {
+          return null; // Fails if channels:read is missing or history fails for other reasons.
+        }
+      })(),
+    ];
+
+    const results = await Promise.all(scopeCheckPromises);
+    const grantedScopes = results.filter((scope): scope is string => scope !== null);
+
+    // 3. Fetch team icon using the (now confirmed) team:read scope.
+    let teamIcon = '';
+    if (grantedScopes.includes('team:read')) {
+        const teamInfoResponse = await slackFetch('team.info', token, 'GET', { team: team_id });
+        teamIcon = teamInfoResponse.team?.icon?.image_132 || '';
+    } else {
+        console.warn("팀 아이콘을 가져올 수 없습니다. 'team:read' 권한이 없거나 확인에 실패했습니다.");
     }
-
-    // For bot tokens (xoxb-), scopes are in the body. For user tokens (xoxp-), they are in the headers.
-    // We prioritize body scopes (which are more reliable with proxies) and fallback to headers.
-    const scopesFromBody = data.scopes; // This will be an array like ['chat:write', ...] or undefined.
-    const scopesHeader = userScopesHeader || botScopesHeader;
-    const scopesFromHeader = scopesHeader ? scopesHeader.split(',').map(s => s.trim()) : [];
     
-    const scopes = scopesFromBody || scopesFromHeader;
-
-    if (scopes.length === 0) {
-      console.warn("Slack API 응답에서 권한(scope)을 감지할 수 없었습니다. 이는 CORS 프록시가 'x-oauth-scopes' 헤더를 차단했거나, 토큰이 유효하지 않기 때문일 수 있습니다.");
-    }
-    
-    // `auth.test` doesn't provide the team icon, so we fetch it separately.
-    const teamInfoResponse = await slackFetch('team.info', token, 'GET', { team: data.team_id });
-    const teamIcon = teamInfoResponse.team?.icon?.image_132 || '';
-
+    // 4. Return the final workspace object with actively detected scopes.
     return {
-      id: data.team_id,
-      name: data.team,
+      id: team_id,
+      name: team,
       teamIcon: teamIcon,
-      scopes: scopes,
+      scopes: grantedScopes,
     };
-  } catch (e) {
-    if (e instanceof Error) {
-      throw e;
-    }
-    throw new Error('토큰 유효성 검증 중 알 수 없는 오류가 발생했습니다.');
-  }
 };
 
 /**
