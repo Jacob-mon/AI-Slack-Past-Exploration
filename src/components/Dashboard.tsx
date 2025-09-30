@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Workspace, Channel, SearchParams } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Channel, SearchParams, ConnectionState } from '../types';
 import { summarizeDiscussions, analyzeQuery } from '../services/geminiService';
 import { getPublicChannels, searchMessages } from '../services/slackService';
 import { SpinnerIcon } from './icons/SpinnerIcon';
@@ -7,14 +7,26 @@ import { ClipboardIcon } from './icons/ClipboardIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { SearchIcon } from './icons/SearchIcon';
 import MarkdownRenderer from './MarkdownRenderer';
+import { AlertTriangleIcon } from './icons/AlertTriangleIcon';
+import { XCircleIcon } from './icons/XCircleIcon';
 
 interface DashboardProps {
-  workspace: Workspace;
-  onDisconnect: () => void;
-  slackToken: string;
+  connectionState: ConnectionState;
+  onRetry: () => void;
+  slackToken: string | null;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ workspace, onDisconnect, slackToken }) => {
+const REQUIRED_SCOPES = ['search:read', 'channels:history', 'channels:read', 'team:read'];
+const scopeDescriptions: Record<string, string> = {
+    'search:read': '키워드를 기반으로 공개 채널에서 메시지를 검색합니다.',
+    'channels:history': '선택한 특정 공개 채널의 메시지를 읽습니다.',
+    'channels:read': '선택을 위해 워크스페이스의 공개 채널 목록을 가져옵니다.',
+    'team:read': '워크스페이스의 이름, 아이콘 등 기본 정보를 가져옵니다.',
+};
+
+const Dashboard: React.FC<DashboardProps> = ({ connectionState, onRetry, slackToken }) => {
+  const { isLoading, workspace, error, hasAllPermissions } = connectionState;
+
   const [channels, setChannels] = useState<Channel[]>([]);
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [selectedChannels, setSelectedChannels] = useState<Set<string>>(new Set());
@@ -34,14 +46,16 @@ const Dashboard: React.FC<DashboardProps> = ({ workspace, onDisconnect, slackTok
 
 
   useEffect(() => {
-    setChannelsLoading(true);
-    getPublicChannels(slackToken)
-      .then(setChannels)
-      .catch(err => {
-        console.error("채널을 불러오는 데 실패했습니다:", err);
-      })
-      .finally(() => setChannelsLoading(false));
-  }, [slackToken]);
+    if (workspace && hasAllPermissions && slackToken) {
+      setChannelsLoading(true);
+      getPublicChannels(slackToken)
+        .then(setChannels)
+        .catch(err => {
+          console.error("채널을 불러오는 데 실패했습니다:", err);
+        })
+        .finally(() => setChannelsLoading(false));
+    }
+  }, [workspace, hasAllPermissions, slackToken]);
 
   const handleChannelToggle = (channelId: string) => {
     setSelectedChannels(prev => {
@@ -63,7 +77,7 @@ const Dashboard: React.FC<DashboardProps> = ({ workspace, onDisconnect, slackTok
 
   const handleGenerateSummary = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!naturalQuery.trim()) {
+      if (!naturalQuery.trim() || !slackToken) {
           alert('검색할 내용을 입력해주세요.');
           return;
       }
@@ -141,148 +155,223 @@ const Dashboard: React.FC<DashboardProps> = ({ workspace, onDisconnect, slackTok
     channel.name.toLowerCase().includes(channelSearchQuery.toLowerCase())
   );
 
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-3">
-          <img src={workspace.teamIcon} alt={workspace.name} className="h-10 w-10 rounded-md" />
-          <div>
-            <p className="font-semibold text-white">{workspace.name}</p>
-            <p className="text-sm text-gray-400">워크스페이스 연결됨</p>
-          </div>
+  if (isLoading) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-[300px]">
+            <SpinnerIcon className="animate-spin h-8 w-8 text-indigo-400 mb-4" />
+            <p className="text-gray-300">Slack 워크스페이스에 연결 중...</p>
         </div>
-        <button onClick={onDisconnect} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">
-          연결 해제
-        </button>
-      </div>
+    );
+  }
 
-      <>
-        <form onSubmit={handleGenerateSummary} className="mt-8">
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="natural-query" className="block text-sm font-medium text-gray-300 mb-1">무엇을 찾고 싶으신가요?</label>
-              <textarea 
-                id="natural-query" 
-                value={naturalQuery} 
-                onChange={e => setNaturalQuery(e.target.value)} 
-                className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 text-white focus:ring-indigo-500 focus:border-indigo-500 min-h-[60px]" 
-                placeholder="예: 지난 주에 논의했던 데이터베이스 마이그레이션 계획에 대한 내용을 찾아줘" 
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div>
-                  <label htmlFor="start-date" className="block text-sm font-medium text-gray-300 mb-1">시작일</label>
-                  <input type="date" id="start-date" value={searchParams.startDate} onChange={e => setSearchParams({...searchParams, startDate: e.target.value})} className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 text-white focus:ring-indigo-500 focus:border-indigo-500" />
-              </div>
-               <div>
-                  <label htmlFor="end-date" className="block text-sm font-medium text-gray-300 mb-1">종료일</label>
-                  <input type="date" id="end-date" value={searchParams.endDate} onChange={e => setSearchParams({...searchParams, endDate: e.target.value})} className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 text-white focus:ring-indigo-500 focus:border-indigo-500" />
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-gray-300 mb-2">특정 채널로 제한 (선택 사항)</h4>
-              <div className="relative mb-2">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                  <SearchIcon className="h-5 w-5 text-gray-400" />
-                </span>
-                <input
-                  type="text"
-                  value={channelSearchQuery}
-                  onChange={e => setChannelSearchQuery(e.target.value)}
-                  className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 pl-10 text-white focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="채널 검색..."
-                />
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto bg-gray-900/50 p-3 rounded-lg border border-gray-700">
-                  {channelsLoading && <p className="text-gray-400 text-sm col-span-full">채널 로딩 중...</p>}
-                  {!channelsLoading && filteredChannels.length > 0 && filteredChannels.map(channel => (
-                      <label key={channel.id} className="flex items-center space-x-2 text-white cursor-pointer hover:bg-gray-700 p-1 rounded-md">
-                          <input type="checkbox" checked={selectedChannels.has(channel.id)} onChange={() => handleChannelToggle(channel.id)} className="rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
-                          <span>#{channel.name}</span>
-                      </label>
-                  ))}
-                   {!channelsLoading && filteredChannels.length === 0 && (
-                      <p className="text-gray-400 text-sm col-span-full">일치하는 채널이 없습니다.</p>
-                  )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">채널을 선택하지 않으면 모든 공개 채널에서 검색합니다.</p>
-            </div>
-            <div className="flex items-center gap-4">
-                <button 
-                    type="submit" 
-                    disabled={isLoadingSummary} 
-                    className="flex-grow bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg transition-opacity flex items-center justify-center text-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                    {isLoadingSummary && <SpinnerIcon className="animate-spin -ml-1 mr-3 h-5 w-5" />}
-                    {isLoadingSummary ? '요약 생성 중...' : '요약 생성'}
-                </button>
-                {isLoadingSummary && (
-                    <button 
-                        type="button" 
-                        onClick={handleCancel} 
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex-shrink-0"
-                    >
-                        취소
-                    </button>
-                )}
-            </div>
+  if (error) {
+      return (
+          <div className="flex flex-col items-center justify-center text-center min-h-[300px]">
+              <AlertTriangleIcon className="h-10 w-10 text-red-400 mb-4" />
+              <h3 className="text-xl font-bold text-red-400">연결 실패</h3>
+              <p className="text-gray-400 mt-2 max-w-md">{error}</p>
+              {error.includes("Vercel") && <p className="text-gray-500 mt-2 text-sm">Vercel 대시보드에서 <code>VITE_SLACK_TOKEN</code> 환경 변수를 확인하고 다시 배포해주세요.</p>}
+              <button
+                  onClick={onRetry}
+                  className="mt-6 inline-flex items-center justify-center bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors text-lg"
+              >
+                  새로고침하여 재시도
+              </button>
           </div>
-        </form>
-        
-        {(isLoadingSummary || summary) && (
-          <div className="mt-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">생성된 요약</h2>
-                {summary && !isLoadingSummary && (
-                  <div className="flex items-center space-x-1 bg-gray-700 p-1 rounded-lg">
-                    <button
-                      onClick={() => setSummaryViewMode('preview')}
-                      className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${summaryViewMode === 'preview' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
-                    >
-                      미리보기
-                    </button>
-                    <button
-                      onClick={() => setSummaryViewMode('markdown')}
-                      className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${summaryViewMode === 'markdown' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
-                    >
-                      Markdown
-                    </button>
+      );
+  }
+
+  if (workspace && !hasAllPermissions) {
+      const userScopes = new Set(workspace.scopes);
+      return (
+          <div className="text-center flex flex-col items-center">
+               <div className="flex items-center space-x-3 mb-4">
+                  <img src={workspace.teamIcon} alt={workspace.name} className="h-10 w-10 rounded-md" />
+                  <div>
+                      <p className="font-semibold text-white text-left">{workspace.name}</p>
+                      <p className="text-sm text-gray-400 text-left">워크스페이스 연결됨</p>
                   </div>
-                )}
+              </div>
+
+              <h2 className="text-2xl font-bold text-red-400 mb-3">권한 부족</h2>
+              <p className="text-gray-300 mb-6 max-w-2xl">
+                  연결된 토큰에 일부 필수 권한이 누락되었습니다. 앱이 올바르게 작동하려면 아래의 모든 필수 권한이 부여된 새 토큰을 생성해야 합니다.
+              </p>
+
+              <div className="w-full max-w-lg mb-8 text-left">
+                  <h3 className="text-lg font-semibold text-white mb-4">필수 권한 상태</h3>
+                  <ul className="space-y-3">
+                      {REQUIRED_SCOPES.map(scope => (
+                           <li className="flex items-start space-x-4 p-3 bg-gray-700/50 rounded-lg" key={scope}>
+                              <div>
+                                  {userScopes.has(scope) ? (
+                                      <CheckCircleIcon className="h-6 w-6 text-green-400 flex-shrink-0" />
+                                  ) : (
+                                      <XCircleIcon className="h-6 w-6 text-red-400 flex-shrink-0" />
+                                  )}
+                              </div>
+                              <div>
+                                  <code className="font-mono text-sm bg-gray-600 text-indigo-300 rounded px-1.5 py-0.5">{scope}</code>
+                                  <p className="text-gray-400 text-sm mt-1">{scopeDescriptions[scope] || '필수 권한입니다.'}</p>
+                              </div>
+                          </li>
+                      ))}
+                  </ul>
               </div>
               
-              {executedSearchKeyword && !isLoadingSummary && (
-                <div className="mb-4 text-sm text-gray-400">
-                  AI가 분석한 검색어: <code className="font-mono bg-gray-700 text-indigo-300 rounded px-1.5 py-1">{executedSearchKeyword}</code>
-                </div>
-              )}
+              <button
+                  onClick={onRetry}
+                  className="inline-flex items-center justify-center bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors text-lg"
+              >
+                  새로고침하여 재시도
+              </button>
+          </div>
+      );
+  }
 
-              <div className="bg-gray-900 p-4 rounded-lg border border-gray-700 relative min-h-[10rem]">
-                {isLoadingSummary && (
-                  <div className="absolute inset-0 bg-gray-900/80 flex flex-col items-center justify-center rounded-lg">
-                      <SpinnerIcon className="animate-spin h-8 w-8 text-indigo-400 mb-4" />
-                      <p className="text-gray-300">{loadingMessage}</p>
-                      <p className="text-gray-500 text-sm">잠시만 기다려주세요.</p>
+  if (workspace && hasAllPermissions) {
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center space-x-3">
+            <img src={workspace.teamIcon} alt={workspace.name} className="h-10 w-10 rounded-md" />
+            <div>
+              <p className="font-semibold text-white">{workspace.name}</p>
+              <p className="text-sm text-green-400">워크스페이스 연결됨</p>
+            </div>
+          </div>
+        </div>
+
+        <>
+          <form onSubmit={handleGenerateSummary} className="mt-8">
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="natural-query" className="block text-sm font-medium text-gray-300 mb-1">무엇을 찾고 싶으신가요?</label>
+                <textarea 
+                  id="natural-query" 
+                  value={naturalQuery} 
+                  onChange={e => setNaturalQuery(e.target.value)} 
+                  className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 text-white focus:ring-indigo-500 focus:border-indigo-500 min-h-[60px]" 
+                  placeholder="예: 지난 주에 논의했던 데이터베이스 마이그레이션 계획에 대한 내용을 찾아줘" 
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 <div>
+                    <label htmlFor="start-date" className="block text-sm font-medium text-gray-300 mb-1">시작일</label>
+                    <input type="date" id="start-date" value={searchParams.startDate} onChange={e => setSearchParams({...searchParams, startDate: e.target.value})} className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                 <div>
+                    <label htmlFor="end-date" className="block text-sm font-medium text-gray-300 mb-1">종료일</label>
+                    <input type="date" id="end-date" value={searchParams.endDate} onChange={e => setSearchParams({...searchParams, endDate: e.target.value})} className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">특정 채널로 제한 (선택 사항)</h4>
+                <div className="relative mb-2">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <SearchIcon className="h-5 w-5 text-gray-400" />
+                  </span>
+                  <input
+                    type="text"
+                    value={channelSearchQuery}
+                    onChange={e => setChannelSearchQuery(e.target.value)}
+                    className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 pl-10 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="채널 검색..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                    {channelsLoading && <p className="text-gray-400 text-sm col-span-full">채널 로딩 중...</p>}
+                    {!channelsLoading && filteredChannels.length > 0 && filteredChannels.map(channel => (
+                        <label key={channel.id} className="flex items-center space-x-2 text-white cursor-pointer hover:bg-gray-700 p-1 rounded-md">
+                            <input type="checkbox" checked={selectedChannels.has(channel.id)} onChange={() => handleChannelToggle(channel.id)} className="rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-indigo-500" />
+                            <span>#{channel.name}</span>
+                        </label>
+                    ))}
+                     {!channelsLoading && filteredChannels.length === 0 && (
+                        <p className="text-gray-400 text-sm col-span-full">일치하는 채널이 없습니다.</p>
+                    )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">채널을 선택하지 않으면 모든 공개 채널에서 검색합니다.</p>
+              </div>
+              <div className="flex items-center gap-4">
+                  <button 
+                      type="submit" 
+                      disabled={isLoadingSummary} 
+                      className="flex-grow bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg transition-opacity flex items-center justify-center text-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                      {isLoadingSummary && <SpinnerIcon className="animate-spin -ml-1 mr-3 h-5 w-5" />}
+                      {isLoadingSummary ? '요약 생성 중...' : '요약 생성'}
+                  </button>
+                  {isLoadingSummary && (
+                      <button 
+                          type="button" 
+                          onClick={handleCancel} 
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex-shrink-0"
+                      >
+                          취소
+                      </button>
+                  )}
+              </div>
+            </div>
+          </form>
+          
+          {(isLoadingSummary || summary) && (
+            <div className="mt-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">생성된 요약</h2>
+                  {summary && !isLoadingSummary && (
+                    <div className="flex items-center space-x-1 bg-gray-700 p-1 rounded-lg">
+                      <button
+                        onClick={() => setSummaryViewMode('preview')}
+                        className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${summaryViewMode === 'preview' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                      >
+                        미리보기
+                      </button>
+                      <button
+                        onClick={() => setSummaryViewMode('markdown')}
+                        className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${summaryViewMode === 'markdown' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                      >
+                        Markdown
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {executedSearchKeyword && !isLoadingSummary && (
+                  <div className="mb-4 text-sm text-gray-400">
+                    AI가 분석한 검색어: <code className="font-mono bg-gray-700 text-indigo-300 rounded px-1.5 py-1">{executedSearchKeyword}</code>
                   </div>
                 )}
-                {summary && (
-                    <>
-                      <button onClick={handleCopy} className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 p-2 rounded-lg text-gray-300 transition-colors z-10">
-                          {copySuccess ? <CheckCircleIcon className="h-5 w-5 text-green-400" /> : <ClipboardIcon className="h-5 w-5" />}
-                      </button>
-                      {summaryViewMode === 'preview' && !isLoadingSummary ? (
-                        <MarkdownRenderer content={summary} />
-                      ) : (
-                        <pre className="whitespace-pre-wrap font-mono text-sm text-gray-200">{summary}</pre>
-                      )}
-                    </>
-                )}
-              </div>
-          </div>
-        )}
-      </>
-    </div>
-  );
+
+                <div className="bg-gray-900 p-4 rounded-lg border border-gray-700 relative min-h-[10rem]">
+                  {isLoadingSummary && (
+                    <div className="absolute inset-0 bg-gray-900/80 flex flex-col items-center justify-center rounded-lg">
+                        <SpinnerIcon className="animate-spin h-8 w-8 text-indigo-400 mb-4" />
+                        <p className="text-gray-300">{loadingMessage}</p>
+                        <p className="text-gray-500 text-sm">잠시만 기다려주세요.</p>
+                    </div>
+                  )}
+                  {summary && (
+                      <>
+                        <button onClick={handleCopy} className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 p-2 rounded-lg text-gray-300 transition-colors z-10">
+                            {copySuccess ? <CheckCircleIcon className="h-5 w-5 text-green-400" /> : <ClipboardIcon className="h-5 w-5" />}
+                        </button>
+                        {summaryViewMode === 'preview' && !isLoadingSummary ? (
+                          <MarkdownRenderer content={summary} />
+                        ) : (
+                          <pre className="whitespace-pre-wrap font-mono text-sm text-gray-200">{summary}</pre>
+                        )}
+                      </>
+                  )}
+                </div>
+            </div>
+          )}
+        </>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 export default Dashboard;

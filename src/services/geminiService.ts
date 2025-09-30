@@ -1,23 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SearchParams } from '../types';
 
-let ai: GoogleGenAI | null = null;
+// IMPORTANT: This key is managed by the execution environment.
+// Do not hardcode or manage it in the UI.
+const API_KEY = process.env.API_KEY;
 
-const getAiInstance = (): GoogleGenAI => {
-  if (ai) {
-    return ai;
-  }
+if (!API_KEY) {
+  // In a real app, you might want to handle this more gracefully,
+  // but for this context, we assume the key is present.
+  console.warn("API_KEY 환경 변수가 설정되지 않았습니다. Gemini API 호출이 실패합니다.");
+}
 
-  const API_KEY = process.env.API_KEY;
-
-  if (!API_KEY) {
-    // This will be caught by the UI and shown to the user.
-    throw new Error("Gemini API 키(VITE_API_KEY)가 설정되지 않았습니다. Vercel 프로젝트 설정에서 환경 변수를 추가해주세요.");
-  }
-
-  ai = new GoogleGenAI({ apiKey: API_KEY });
-  return ai;
-};
+const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
 /**
  * Analyzes the user's natural language query to extract relevant search keywords.
@@ -26,7 +20,9 @@ const getAiInstance = (): GoogleGenAI => {
  * @returns A promise that resolves to an array of keywords.
  */
 export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise<string[]> => {
-    const gemini = getAiInstance();
+    if (!API_KEY) {
+        throw new Error("Gemini API 키(process.env.API_KEY)가 설정되지 않았습니다.");
+    }
     
     const contents = `당신은 사용자의 자연어 요청에서 Slack 검색에 사용할 핵심 키워드를 추출하는 AI 전문가입니다. 당신의 목표는 오직 검색에 필수적인 명사, 고유명사, 기술 용어만을 정확하게 식별하여, 검색 정확도를 극대화하는 것입니다.
 
@@ -74,7 +70,7 @@ export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise
 **사용자 요청:** "${query}"`;
 
     try {
-        const response = await gemini.models.generateContent({
+        const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: contents,
             config: {
@@ -108,8 +104,8 @@ export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise
             throw error;
         }
         console.error("Gemini query analysis 오류:", error);
-        // Rethrow the error to be displayed in the UI.
-        throw error;
+        console.log("AI 분석 실패. 원본 쿼리를 검색어로 사용합니다.");
+        return [query];
     }
 };
 
@@ -160,12 +156,15 @@ ${messagesJSON}
 
 
 export const summarizeDiscussions = async (params: SearchParams, messages: any[], signal?: AbortSignal): Promise<string> => {
-  const gemini = getAiInstance();
+  if (!API_KEY) {
+    throw new Error("Gemini API 키(process.env.API_KEY)가 설정되지 않았습니다.");
+  }
+
   const prompt = generatePrompt(params, messages);
 
   try {
     // The 'signal' property is not supported in 'GenerateContentParameters' for the SDK.
-    const response = await gemini.models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
     });

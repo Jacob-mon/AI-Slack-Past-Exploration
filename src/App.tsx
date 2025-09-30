@@ -1,32 +1,63 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
-import ConnectView from './components/ConnectView';
 import { Workspace } from './types';
 import { SlackIcon } from './components/icons/SlackIcon';
 import { NotionIcon } from './components/icons/NotionIcon';
 import { verifyToken } from './services/slackService';
+import { ConnectionState } from './types';
+
+const SLACK_TOKEN = process.env.SLACK_TOKEN;
+
+const REQUIRED_SCOPES = ['search:read', 'channels:history', 'channels:read', 'team:read'];
 
 const App: React.FC = () => {
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [slackToken, setSlackToken] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>({
+    isLoading: true,
+    workspace: null,
+    error: null,
+    hasAllPermissions: false,
+  });
 
-  const handleConnect = useCallback(async (token: string) => {
-    const workspaceInfo = await verifyToken(token);
-    setWorkspace(workspaceInfo);
-    setSlackToken(token);
+  useEffect(() => {
+    const connectToSlack = async () => {
+      if (!SLACK_TOKEN || (!SLACK_TOKEN.startsWith('xoxp-') && !SLACK_TOKEN.startsWith('xoxb-'))) {
+        setConnectionState({
+          isLoading: false,
+          workspace: null,
+          error: "유효한 Slack 토큰이 Vercel 환경 변수(VITE_SLACK_TOKEN)에 설정되지 않았습니다. 배포 설정을 확인해주세요.",
+          hasAllPermissions: false,
+        });
+        return;
+      }
+
+      try {
+        const workspaceInfo = await verifyToken(SLACK_TOKEN);
+        const userScopes = new Set(workspaceInfo.scopes);
+        const hasAll = REQUIRED_SCOPES.every(scope => userScopes.has(scope));
+
+        setConnectionState({
+          isLoading: false,
+          workspace: workspaceInfo,
+          error: null,
+          hasAllPermissions: hasAll,
+        });
+      } catch (err) {
+        setConnectionState({
+          isLoading: false,
+          workspace: null,
+          error: err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.',
+          hasAllPermissions: false,
+        });
+      }
+    };
+
+    connectToSlack();
   }, []);
 
-  const handleDisconnect = useCallback(() => {
-    setWorkspace(null);
-    setSlackToken(null);
+  const handleRetry = useCallback(() => {
+    // A simple page reload is sufficient to retry the connection.
+    window.location.reload();
   }, []);
-
-  const renderContent = () => {
-    if (workspace && slackToken) {
-      return <Dashboard workspace={workspace} slackToken={slackToken} onDisconnect={handleDisconnect} />;
-    }
-    return <ConnectView onConnect={handleConnect} />;
-  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans flex flex-col items-center p-4 sm:p-6 lg:p-8">
@@ -48,7 +79,11 @@ const App: React.FC = () => {
         </div>
 
         <div className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl shadow-indigo-500/10 p-6 sm:p-8">
-          {renderContent()}
+          <Dashboard
+            connectionState={connectionState}
+            onRetry={handleRetry}
+            slackToken={SLACK_TOKEN}
+          />
         </div>
       </main>
       <footer className="w-full max-w-4xl text-center mt-12 text-gray-500 text-sm">
