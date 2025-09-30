@@ -61,7 +61,7 @@ const slackFetch = async (endpoint: string, token: string, method: 'GET' | 'POST
         if (retries <= 0) {
             // Throw the final error after all retries are exhausted.
             // Slack's official error code for rate limiting is 'ratelimited'.
-            throw new Error('Slack API 오류: ratelimited');
+            throw new Error('Slack API error: ratelimited');
         }
         const retryAfterSeconds = parseInt(response.headers.get('Retry-After') || '1', 10);
         console.warn(`Slack API rate limited. Retrying after ${retryAfterSeconds} seconds... (${retries} retries left)`);
@@ -73,18 +73,18 @@ const slackFetch = async (endpoint: string, token: string, method: 'GET' | 'POST
     if (contentType && contentType.indexOf("application/json") !== -1) {
       const data = await response.json();
       if (!data.ok) {
-        console.error(`Slack API 오류 (${endpoint}):`, data.error);
-        throw new Error(`Slack API 오류: ${data.error}`);
+        console.error(`Slack API Error (${endpoint}):`, data.error);
+        throw new Error(`Slack API Error: ${data.error}`);
       }
       return data; // Success, exit loop and function.
     } else {
       const text = await response.text();
-      console.error(`Slack API로부터 비-JSON 응답 (${endpoint}):`, text);
-      throw new Error(`Slack API에서 데이터를 가져오는 데 실패했습니다. 서버가 JSON이 아닌 응답을 반환했습니다.`);
+      console.error(`Non-JSON response from Slack API (${endpoint}):`, text);
+      throw new Error(`Failed to fetch data from Slack API. Server returned a non-JSON response.`);
     }
   }
   // This is a fallback, but the loop should handle the final error throw.
-  throw new Error('Slack API 요청이 여러 번의 재시도 후 실패했습니다.');
+  throw new Error('Slack API request failed after multiple retries.');
 };
 
 
@@ -95,7 +95,7 @@ const slackFetch = async (endpoint: string, token: string, method: 'GET' | 'POST
  * @param errorMessage The error message to throw on timeout.
  * @returns A new promise that either resolves with the original promise's value or rejects on timeout.
  */
-const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage = '작업 시간이 초과되었습니다.'): Promise<T> => {
+const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage = 'Operation timed out.'): Promise<T> => {
     const timeout = new Promise<T>((_, reject) => {
         const id = setTimeout(() => {
             clearTimeout(id);
@@ -124,8 +124,8 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
           'Authorization': `Bearer ${token}`
         },
       }),
-      20000, // 20초 타임아웃
-      'Slack API 연결 시간이 초과되었습니다. 토큰, 네트워크 연결 또는 프록시 설정을 확인해주세요.'
+      20000, // 20-second timeout
+      'Slack API connection timed out. Check your token, network connection, or proxy settings.'
     );
 
     // For user tokens (xoxp-), scopes are returned in this header.
@@ -138,7 +138,7 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
     const data = await response.json();
 
     if (!data.ok) {
-      throw new Error(`Slack API 오류: ${data.error}`);
+      throw new Error(`Slack API Error: ${data.error}`);
     }
 
     // `auth.test` doesn't provide the team icon, so we fetch it separately.
@@ -155,7 +155,7 @@ export const verifyToken = async (token: string): Promise<Workspace> => {
     if (e instanceof Error) {
       throw e;
     }
-    throw new Error('토큰 유효성 검증 중 알 수 없는 오류가 발생했습니다.');
+    throw new Error('An unknown error occurred during token validation.');
   }
 };
 
@@ -298,7 +298,7 @@ export const searchMessages = async (token: string, params: SearchParams, signal
                     // Re-throw abort errors to be handled by the caller
                     throw err;
                 }
-                console.error(`스레드를 가져오는 데 실패했습니다 (ts: ${ts}):`, err);
+                console.error(`Failed to fetch thread (ts: ${ts}):`, err);
                 return []; // Return empty array on error to not fail the whole process
             })
     );

@@ -8,7 +8,7 @@ const API_KEY = process.env.API_KEY;
 if (!API_KEY) {
   // In a real app, you might want to handle this more gracefully,
   // but for this context, we assume the key is present.
-  console.warn("API_KEY 환경 변수가 설정되지 않았습니다. Gemini API 호출이 실패합니다.");
+  console.warn("API_KEY environment variable is not set. Gemini API calls will fail.");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
@@ -21,7 +21,7 @@ const ai = new GoogleGenAI({ apiKey: API_KEY! });
  */
 export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise<string[]> => {
     if (!API_KEY) {
-        throw new Error("Gemini API 키(process.env.API_KEY)가 설정되지 않았습니다.");
+        throw new Error("Gemini API key (process.env.API_KEY) is not configured.");
     }
     
     const contents = `당신은 사용자의 자연어 요청에서 Slack 검색에 사용할 핵심 키워드를 추출하는 AI 전문가입니다. 당신의 목표는 오직 검색에 필수적인 명사, 고유명사, 기술 용어만을 정확하게 식별하여, 검색 정확도를 극대화하는 것입니다.
@@ -95,7 +95,7 @@ export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise
         if (jsonResponse.keywords && Array.isArray(jsonResponse.keywords) && jsonResponse.keywords.length > 0) {
             return jsonResponse.keywords;
         } else {
-            console.warn("AI가 키워드를 추출하지 못했습니다. 원본 쿼리를 사용합니다.");
+            console.warn("AI could not extract keywords. Using original query.");
             return [query];
         }
 
@@ -103,8 +103,8 @@ export const analyzeQuery = async (query: string, signal?: AbortSignal): Promise
         if (error instanceof Error && error.name === 'AbortError') {
             throw error;
         }
-        console.error("Gemini query analysis 오류:", error);
-        console.log("AI 분석 실패. 원본 쿼리를 검색어로 사용합니다.");
+        console.error("Gemini query analysis error:", error);
+        console.log("AI analysis failed. Using original query as keyword.");
         return [query];
     }
 };
@@ -157,7 +157,7 @@ ${messagesJSON}
 
 export const summarizeDiscussions = async (params: SearchParams, messages: any[], signal?: AbortSignal): Promise<string> => {
   if (!API_KEY) {
-    throw new Error("Gemini API 키(process.env.API_KEY)가 설정되지 않았습니다.");
+    throw new Error("Gemini API key (process.env.API_KEY) is not configured.");
   }
 
   const prompt = generatePrompt(params, messages);
@@ -175,7 +175,7 @@ export const summarizeDiscussions = async (params: SearchParams, messages: any[]
       // This part might not be triggered if the SDK doesn't support AbortSignal.
       throw error;
     }
-    console.error("Gemini API 호출 오류:", error);
-    throw new Error(`오류: 요약을 생성할 수 없습니다. 자세한 내용은 콘솔을 확인해주세요.`);
+    console.error("Gemini API call error:", error);
+    throw new Error(`Error: Could not generate summary. Check console for details.`);
   }
 };
